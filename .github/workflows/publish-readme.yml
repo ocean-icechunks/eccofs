@@ -1,0 +1,35 @@
+name: Publish README to Source Cooperative
+
+# Keeps ocean-icechunks/noaa-eccofs/README.md (shown on the repository's Source Cooperative page, beside
+# the Icechunk stores) in step with README.md in this repository.
+on:
+  push:
+    branches: [main]
+    paths: [README.md]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-readme
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write  # lets aws-actions/configure-aws-credentials exchange the GitHub token for a role
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sign in to Source Cooperative as ocean-icechunks--noaa-eccofs-updates
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::ocean-icechunks--noaa-eccofs-updates:role/FullAccess
+          audience: https://data.source.coop
+          sts-endpoint: https://data.source.coop/.sts
+          aws-region: us-west-2
+      - name: Upload README.md
+        run: |
+          aws s3 cp README.md s3://ocean-icechunks/noaa-eccofs/README.md \
+            --endpoint-url https://data.source.coop --content-type "text/markdown; charset=utf-8"
+          aws s3 ls s3://ocean-icechunks/noaa-eccofs/README.md --endpoint-url https://data.source.coop
