@@ -18,7 +18,7 @@ first time whose file changed, and appends references for the changed files only
 keeps its references; a daily update opens about 7 files. A store without `sources` is rebuilt in full.
 
     python scripts/build_avg_best.py --dry-run
-    python scripts/build_avg_best.py --prefix rsignell/eccofs-avg-best-smoke --max-times 6
+    python scripts/build_avg_best.py --prefix noaa-eccofs/eccofs-avg-best-smoke --max-times 6
     python scripts/build_avg_best.py --update --expire-days 7   # what the daily workflow runs
 """
 import argparse
@@ -37,13 +37,12 @@ import zarr
 from rolodex.forecast import BestEstimate, ForecastIndex
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build_avg import DROP_ATTRS, SRC, expire_old, log, open_file, osn_storage, repo_config  # noqa: E402
+from build_avg import DROP_ATTRS, SRC, expire_old, log, open_file, repo_config, store_storage  # noqa: E402
 
 
 def best_files(args):
     """[(run YYYYMMDD, file number 1..8, valid time)] for the best-estimate series, read from the FMRC store."""
-    storage = icechunk.s3_storage(bucket=args.bucket, prefix=args.source_prefix, region="us-east-1",
-                                  endpoint_url=args.endpoint, anonymous=True, force_path_style=True)
+    storage = store_storage(args, args.source_prefix)
     repo = icechunk.Repository.open(
         storage, repo_config(),
         authorize_virtual_chunk_access=icechunk.containers_credentials({SRC: icechunk.s3_anonymous_credentials()}))
@@ -99,17 +98,18 @@ def truncate_time(store, n):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--bucket", default="esip")
-    ap.add_argument("--prefix", default="rsignell/eccofs-avg-best", help="where to write the store")
-    ap.add_argument("--source-prefix", default="rsignell/eccofs-avg", help="FMRC store the best series is derived from")
-    ap.add_argument("--endpoint", default="https://usgs.osn.mghpcc.org")
-    ap.add_argument("--profile", default=os.environ.get("AWS_PROFILE", "osn-esip"))
+    ap.add_argument("--bucket", default="ocean-icechunks")
+    ap.add_argument("--prefix", default="noaa-eccofs/eccofs-avg-best", help="where to write the store")
+    ap.add_argument("--source-prefix", default="noaa-eccofs/eccofs-avg-fmrc", help="FMRC store the best series is derived from")
+    ap.add_argument("--endpoint", default="https://data.source.coop")
+    ap.add_argument("--profile", help="AWS profile to read credentials from when AWS_ACCESS_KEY_ID is not set")
     ap.add_argument("--workers", type=int, default=os.cpu_count())
     ap.add_argument("--batch-size", type=int, default=32, help="times per write")
     ap.add_argument("--max-times", type=int, help="use only the first N times of the series (for testing)")
     ap.add_argument("--update", action="store_true",
                     help="bring an existing store up to date: truncate the changed tail and append (one commit)")
     ap.add_argument("--expire-days", type=int, help="after writing, expire snapshots older than this many days and garbage-collect")
+    ap.add_argument("--create", action="store_true", help="create the repository if it does not exist (otherwise an error)")
     ap.add_argument("--dry-run", action="store_true", help="print the chosen files and exit")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
@@ -127,7 +127,7 @@ def main():
 
     sources = [f"{run}_{n:04d}" for run, n, _ in items]
     attrs = {"sources": sources, "latest_run": max(i[0] for i in items)}
-    storage = osn_storage(args)
+    storage = store_storage(args)
     auth = icechunk.containers_credentials({SRC: icechunk.s3_anonymous_credentials()})
     keep = 0  # leading times whose references are kept
     if icechunk.Repository.exists(storage):
@@ -147,6 +147,8 @@ def main():
             log(f"store has {len(old)} times; first {keep} unchanged, replacing {len(old) - keep} and "
                 f"appending {len(sources) - keep} from {sources[keep] if keep < len(sources) else '-'}")
     else:
+        if not args.create:
+            raise SystemExit(f"no repository at s3://{args.bucket}/{args.prefix}; pass --create to build it from scratch")
         repo = icechunk.Repository.create(storage, repo_config(), authorize_virtual_chunk_access=auth)
         repo.save_config()
         log(f"created repository s3://{args.bucket}/{args.prefix}")

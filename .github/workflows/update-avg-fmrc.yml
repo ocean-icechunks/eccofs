@@ -1,6 +1,6 @@
 name: Update ECCOFS avg FMRC store
 
-# Appends new forecast runs to the FMRC store (esip/rsignell/eccofs-avg: time = run reference time,
+# Appends new forecast runs to the FMRC store (ocean-icechunks/noaa-eccofs/eccofs-avg-fmrc: time = run reference time,
 # step = lead day). build_avg.py diffs the reference times already in the store against the complete
 # runs in NOAA's bucket, so a day with nothing new is a no-op.
 on:
@@ -8,7 +8,9 @@ on:
     - cron: "30 15 * * *"   # daily, 15:30 UTC
   workflow_dispatch:
 
-# never run two updates at once: the stores are written by both avg workflows
+# never run two updates at once: the stores are written by both avg workflows.
+# No AWS_ENDPOINT_URL here: the scripts pass the Source Cooperative endpoint explicitly, because a global
+# endpoint would also redirect the anonymous reads of NOAA's bucket.
 concurrency:
   group: update-avg
   cancel-in-progress: false
@@ -17,10 +19,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      # deliberately not AWS_*: those would also redirect the anonymous reads of NOAA's bucket
-      OSN_ACCESS_KEY_ID: ${{ secrets.OSN_ACCESS_KEY_ID }}
-      OSN_SECRET_ACCESS_KEY: ${{ secrets.OSN_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write  # lets aws-actions/configure-aws-credentials exchange the GitHub token for a role
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,4 +30,11 @@ jobs:
           cache: pip
           cache-dependency-path: scripts/requirements.txt
       - run: pip install -r scripts/requirements.txt
+      - name: Sign in to Source Cooperative as ocean-icechunks--noaa-eccofs-updates
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::ocean-icechunks--noaa-eccofs-updates:role/FullAccess
+          audience: https://data.source.coop
+          sts-endpoint: https://data.source.coop/.sts
+          aws-region: us-west-2
       - run: python scripts/build_avg.py --expire-days 7
