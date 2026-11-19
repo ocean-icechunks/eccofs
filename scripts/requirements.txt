@@ -1,0 +1,12 @@
+# dependencies of build_avg.py and build_avg_best.py
+virtualizarr @ git+https://github.com/rsignell/VirtualiZarr@subchunk-first-nontrivial-axis
+rolodex @ git+https://github.com/dcherian/rolodex
+icechunk
+xarray
+zarr
+numpy
+pandas
+obstore
+obspec-utils
+h5py
+dask
