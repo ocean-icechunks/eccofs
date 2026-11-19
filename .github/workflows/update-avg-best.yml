@@ -1,6 +1,6 @@
 name: Update ECCOFS avg best-estimate store
 
-# Rebuilds the best-estimate store (esip/rsignell/eccofs-avg-best: one monotonic valid time) in place
+# Rebuilds the best-estimate store (ocean-icechunks/noaa-eccofs/eccofs-avg-best: one monotonic valid time) in place
 # when the FMRC store has a newer run than the one recorded in the store. The best series is chosen from
 # the FMRC store, so this runs after the FMRC workflow succeeds.
 on:
@@ -19,9 +19,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    env:
-      OSN_ACCESS_KEY_ID: ${{ secrets.OSN_ACCESS_KEY_ID }}
-      OSN_SECRET_ACCESS_KEY: ${{ secrets.OSN_SECRET_ACCESS_KEY }}
+    permissions:
+      id-token: write  # lets aws-actions/configure-aws-credentials exchange the GitHub token for a role
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,4 +30,11 @@ jobs:
           cache: pip
           cache-dependency-path: scripts/requirements.txt
       - run: pip install -r scripts/requirements.txt
+      - name: Sign in to Source Cooperative as ocean-icechunks--noaa-eccofs-updates
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::ocean-icechunks--noaa-eccofs-updates:role/FullAccess
+          audience: https://data.source.coop
+          sts-endpoint: https://data.source.coop/.sts
+          aws-region: us-west-2
       - run: python scripts/build_avg_best.py --update --expire-days 7

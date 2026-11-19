@@ -1,0 +1,54 @@
+name: Copy avg stores from OSN to Source Cooperative (one-off)
+
+# One-time migration. Copies the whole prefix of each store, including the `repo` file, from the public
+# OSN bucket to Source Cooperative. The stores only hold references into NOAA's bucket, so nothing inside
+# them changes. Refuses to run if a destination already has objects. Run it while the update workflows
+# are idle, then delete this file.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: update-avg
+  cancel-in-progress: false
+
+env:
+  OSN_ENDPOINT: https://usgs.osn.mghpcc.org
+  OSN_BUCKET: esip
+  SC_ENDPOINT: https://data.source.coop
+  SC_BUCKET: ocean-icechunks
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      max-parallel: 1
+      matrix:
+        include:
+          - {src: rsignell/eccofs-avg, dst: noaa-eccofs/eccofs-avg-fmrc}
+          - {src: rsignell/eccofs-avg-best, dst: noaa-eccofs/eccofs-avg-best}
+    steps:
+      - name: Sign in to Source Cooperative as ocean-icechunks--noaa-eccofs-updates
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::ocean-icechunks--noaa-eccofs-updates:role/FullAccess
+          audience: https://data.source.coop
+          sts-endpoint: https://data.source.coop/.sts
+          aws-region: us-west-2
+      - name: Refuse to overwrite an existing destination
+        run: |
+          n=$(aws s3 ls "s3://$SC_BUCKET/${{ matrix.dst }}/" --endpoint-url "$SC_ENDPOINT" | wc -l)
+          if [ "$n" -ne 0 ]; then echo "s3://$SC_BUCKET/${{ matrix.dst }}/ already has $n entries"; exit 1; fi
+      - name: Download from OSN (anonymous)
+        run: |
+          aws s3 sync "s3://$OSN_BUCKET/${{ matrix.src }}" ./copy --no-sign-request --endpoint-url "$OSN_ENDPOINT" --only-show-errors
+          du -sh ./copy; find ./copy -type f | wc -l
+      - name: Upload to Source Cooperative
+        run: aws s3 sync ./copy "s3://$SC_BUCKET/${{ matrix.dst }}" --endpoint-url "$SC_ENDPOINT" --only-show-errors
+      - name: Compare object counts and sizes
+        run: |
+          aws s3 ls "s3://$OSN_BUCKET/${{ matrix.src }}/" --recursive --summarize --no-sign-request --endpoint-url "$OSN_ENDPOINT" | tail -2
+          aws s3 ls "s3://$SC_BUCKET/${{ matrix.dst }}/" --recursive --summarize --endpoint-url "$SC_ENDPOINT" | tail -2

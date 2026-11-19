@@ -14,10 +14,11 @@ Valid time is `time + step` and is not stored. The NetCDF bytes stay in the publ
 The script is resumable: it diffs the reference times already in the repository against the
 complete runs in the bucket and appends only the new ones, in increasing order, one commit per batch.
 
-OSN credentials come from the AWS profile (default `osn-esip`) in ~/.aws/credentials.
+The store lives on Source Cooperative (ocean-icechunks/noaa-eccofs); credentials come from the
+environment (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN) or an AWS profile.
 
     python scripts/build_avg.py --dry-run
-    python scripts/build_avg.py --max-runs 5 --prefix rsignell/eccofs-avg-smoke
+    python scripts/build_avg.py --max-runs 5 --prefix noaa-eccofs/eccofs-avg-fmrc-smoke
     python scripts/build_avg.py
 """
 import argparse
@@ -165,17 +166,25 @@ def cat(ds_list, first):
     return out
 
 
-def osn_storage(args):
-    # OSN_* variables (CI secrets) win over the AWS profile; they are deliberately not AWS_*, because an
-    # AWS_ENDPOINT_URL/AWS_* environment would also redirect the anonymous reads of NOAA's bucket
-    key, secret = os.environ.get("OSN_ACCESS_KEY_ID"), os.environ.get("OSN_SECRET_ACCESS_KEY")
+def store_storage(args, prefix=None):
+    """Writable S3 storage for a repository on Source Cooperative (or any S3-compatible endpoint).
+
+    Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN, which is what
+    aws-actions/configure-aws-credentials exports in CI, else from the AWS profile `--profile`. The
+    endpoint is passed explicitly and AWS_ENDPOINT_URL must stay unset: it would also redirect the
+    anonymous reads of NOAA's bucket.
+    """
+    key, secret, token = (os.environ.get(k) for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"))
     if not (key and secret):
+        if not args.profile:
+            raise SystemExit("no credentials: set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY (and AWS_SESSION_TOKEN) or pass --profile")
         p = configparser.ConfigParser()
         p.read(os.path.expanduser("~/.aws/credentials"))
-        key, secret = p[args.profile]["aws_access_key_id"], p[args.profile]["aws_secret_access_key"]
+        c = p[args.profile]
+        key, secret, token = c["aws_access_key_id"], c["aws_secret_access_key"], c.get("aws_session_token")
     return icechunk.s3_storage(
-        bucket=args.bucket, prefix=args.prefix, region="us-east-1", endpoint_url=args.endpoint,
-        access_key_id=key, secret_access_key=secret, force_path_style=True,
+        bucket=args.bucket, prefix=prefix or args.prefix, region="us-east-1", endpoint_url=args.endpoint,
+        access_key_id=key, secret_access_key=secret, session_token=token, force_path_style=True,
     )
 
 
@@ -201,22 +210,25 @@ def repo_config():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--bucket", default="esip")
-    ap.add_argument("--prefix", default="rsignell/eccofs-avg")
-    ap.add_argument("--endpoint", default="https://usgs.osn.mghpcc.org")
-    ap.add_argument("--profile", default=os.environ.get("AWS_PROFILE", "osn-esip"))
+    ap.add_argument("--bucket", default="ocean-icechunks")
+    ap.add_argument("--prefix", default="noaa-eccofs/eccofs-avg-fmrc")
+    ap.add_argument("--endpoint", default="https://data.source.coop")
+    ap.add_argument("--profile", help="AWS profile to read credentials from when AWS_ACCESS_KEY_ID is not set")
     ap.add_argument("--workers", type=int, default=os.cpu_count())
     ap.add_argument("--batch-size", type=int, default=16, help="runs per commit")
     ap.add_argument("--max-runs", type=int, help="stop after this many new runs (for testing)")
     ap.add_argument("--no-subchunk", dest="subchunk", action="store_false",
                     help="keep the source chunking (all vertical levels in one chunk) instead of one chunk per level")
     ap.add_argument("--expire-days", type=int, help="after writing, expire snapshots older than this many days and garbage-collect")
+    ap.add_argument("--create", action="store_true",
+                    help="create the repository if it does not exist (otherwise a missing repository is an error, so a "
+                         "scheduled run can never start a full rebuild by accident)")
     ap.add_argument("--dry-run", action="store_true", help="list what would be added and exit")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
     zarr.config.set({"async.concurrency": 128})
 
-    storage = osn_storage(args)
+    storage = store_storage(args)
     auth = icechunk.containers_credentials({SRC: icechunk.s3_anonymous_credentials()})
     exists = icechunk.Repository.exists(storage)
     have = set()
@@ -239,6 +251,8 @@ def main():
         return
 
     if not exists:
+        if not args.create:
+            raise SystemExit(f"no repository at s3://{args.bucket}/{args.prefix}; pass --create to build it from scratch")
         repo = icechunk.Repository.create(storage, repo_config(), authorize_virtual_chunk_access=auth)
         repo.save_config()
         log(f"created repository s3://{args.bucket}/{args.prefix}")
