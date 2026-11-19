@@ -1,0 +1,33 @@
+name: Update ECCOFS avg best-estimate store
+
+# Rebuilds the best-estimate store (esip/rsignell/eccofs-avg-best: one monotonic valid time) in place
+# when the FMRC store has a newer run than the one recorded in the store. The best series is chosen from
+# the FMRC store, so this runs after the FMRC workflow succeeds.
+on:
+  workflow_run:
+    workflows: ["Update ECCOFS avg FMRC store"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: update-avg
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # a manual dispatch always runs; a chained run only if the FMRC update succeeded
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      OSN_ACCESS_KEY_ID: ${{ secrets.OSN_ACCESS_KEY_ID }}
+      OSN_SECRET_ACCESS_KEY: ${{ secrets.OSN_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+      - run: pip install -r scripts/requirements.txt
+      - run: python scripts/build_avg_best.py --update --expire-days 7

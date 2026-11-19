@@ -22,6 +22,7 @@ OSN credentials come from the AWS profile (default `osn-esip`) in ~/.aws/credent
 """
 import argparse
 import configparser
+import datetime
 import functools
 import multiprocessing
 import os
@@ -165,13 +166,30 @@ def cat(ds_list, first):
 
 
 def osn_storage(args):
-    p = configparser.ConfigParser()
-    p.read(os.path.expanduser("~/.aws/credentials"))
-    c = p[args.profile]
+    # OSN_* variables (CI secrets) win over the AWS profile; they are deliberately not AWS_*, because an
+    # AWS_ENDPOINT_URL/AWS_* environment would also redirect the anonymous reads of NOAA's bucket
+    key, secret = os.environ.get("OSN_ACCESS_KEY_ID"), os.environ.get("OSN_SECRET_ACCESS_KEY")
+    if not (key and secret):
+        p = configparser.ConfigParser()
+        p.read(os.path.expanduser("~/.aws/credentials"))
+        key, secret = p[args.profile]["aws_access_key_id"], p[args.profile]["aws_secret_access_key"]
     return icechunk.s3_storage(
         bucket=args.bucket, prefix=args.prefix, region="us-east-1", endpoint_url=args.endpoint,
-        access_key_id=c["aws_access_key_id"], secret_access_key=c["aws_secret_access_key"], force_path_style=True,
+        access_key_id=key, secret_access_key=secret, force_path_style=True,
     )
+
+
+def expire_old(repo, days):
+    """Drop snapshots older than `days` and delete the manifests only they used.
+
+    Every commit rewrites the manifests of the arrays it touches, so without this the repository
+    grows by the size of the manifests on every update. The newest snapshot is always kept.
+    """
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    expired = repo.expire_snapshots(cutoff)
+    gc = repo.garbage_collect(cutoff)
+    log(f"expired {len(expired)} snapshots older than {days} days; "
+        f"deleted {gc.manifests_deleted} manifests, {gc.bytes_deleted / 1e6:.0f} MB")
 
 
 def repo_config():
@@ -192,6 +210,7 @@ def main():
     ap.add_argument("--max-runs", type=int, help="stop after this many new runs (for testing)")
     ap.add_argument("--no-subchunk", dest="subchunk", action="store_false",
                     help="keep the source chunking (all vertical levels in one chunk) instead of one chunk per level")
+    ap.add_argument("--expire-days", type=int, help="after writing, expire snapshots older than this many days and garbage-collect")
     ap.add_argument("--dry-run", action="store_true", help="list what would be added and exit")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
@@ -240,6 +259,8 @@ def main():
             snap = session.commit(f"avg runs {batch[0]}..{batch[-1]} ({len(batch)} runs)")
             first = False
             log(f"committed {batch[0]}..{batch[-1]} -> {snap}  [{i + len(batch)}/{len(new)} runs, {time.time() - t0:.0f}s]")
+    if args.expire_days:
+        expire_old(repo, args.expire_days)
 
 
 if __name__ == "__main__":
