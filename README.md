@@ -21,10 +21,10 @@ automatically (see [How it stays up to date](#how-it-stays-up-to-date)).
 
 | Dataset | Viewer |
 |---|---|
-| `avg` best estimate, surface potential temperature | [Open it in the viewer](https://data.source.coop/ocean-icechunks/hycom/viewer/index.html#icechunk+https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-best::varname=temp::dimIndices_time=160::dimIndices_s_rho=49) |
-| `avg` best estimate, surface salinity | [Open it in the viewer](https://data.source.coop/ocean-icechunks/hycom/viewer/index.html#icechunk+https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-best::varname=salt::dimIndices_time=160::dimIndices_s_rho=49) |
+| `avg` best estimate, surface potential temperature | [Open it in the viewer](https://eeholmes.github.io/gridlook/#icechunk+https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-best::varname=temp::dimIndices_time=160::dimIndices_s_rho=49) |
+| `avg` best estimate, surface salinity | [Open it in the viewer](https://eeholmes.github.io/gridlook/#icechunk+https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-best::varname=salt::dimIndices_time=160::dimIndices_s_rho=49) |
 
-The links use the [gridlook](https://github.com/d70-t/gridlook) build published beside the HYCOM store, which
+The links use a [gridlook](https://github.com/eeholmes/gridlook) build with the fixes this store needs, which
 reads any store named in the URL. `dimIndices_s_rho=49` is the surface level (the last of 50, since ROMS counts
 from the bottom up) and `dimIndices_time=160` is 2026-11-16; use the sliders to change both.
 
