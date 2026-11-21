@@ -135,7 +135,7 @@ developers.
 If you use the stores or scripts in published work, please cite:
 
 > Signell, R. (2026). *NOAA ECCOFS as virtual Icechunk stores*. ocean-icechunks/noaa-eccofs.
-> https://github.com/rsignell/eccofs
+> https://github.com/ocean-icechunks/eccofs
 
 ## Credits
 

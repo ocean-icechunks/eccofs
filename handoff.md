@@ -16,7 +16,7 @@ Build a virtual Icechunk store over NOAA NOS ECCOFS output (`s3://noaa-nos-eccof
 
 ## Repo and workflow
 
-- https://github.com/rsignell/eccofs (public). `main` has a README, an Apache-2.0 `LICENSE`, and this file.
+- https://github.com/ocean-icechunks/eccofs (public). `main` has a README, an Apache-2.0 `LICENSE`, and this file.
 - Agreed approach: code changes go through branches and PRs, which the user merges. A summary goes in the chat and in the PR description. Never merge without being asked. Never force-push `main` without asking.
 - Local git identity is set to the user's own email, at their request.
 - The README still has placeholders: the store location in the usage example, and what "ECCOFS" stands for.
