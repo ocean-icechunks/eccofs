@@ -38,3 +38,5 @@ jobs:
           sts-endpoint: https://data.source.coop/.sts
           aws-region: us-west-2
       - run: python scripts/build_avg_best.py --update --expire-days 7
+      - name: Whole-column variant (no subchunking)
+        run: python scripts/build_avg_best.py --update --no-subchunk --prefix noaa-eccofs/eccofs-avg-best-nosub --expire-days 7
