@@ -20,8 +20,13 @@ keeps its references; a daily update opens about 7 files. A store without `sourc
     python scripts/build_avg_best.py --dry-run
     python scripts/build_avg_best.py --prefix noaa-eccofs/eccofs-avg-best-smoke --max-times 6
     python scripts/build_avg_best.py --update --expire-days 7   # what the daily workflow runs
+
+With `--no-subchunk` the store keeps NOAA's chunking, all vertical levels of a tile in one chunk, which
+reads a vertical profile or section in far fewer requests (a surface map reads about 50x more data).
+Use a separate `--prefix` for it: the chunking of an existing store cannot change.
 """
 import argparse
+import functools
 import multiprocessing
 import os
 import sys
@@ -106,6 +111,9 @@ def main():
     ap.add_argument("--workers", type=int, default=os.cpu_count())
     ap.add_argument("--batch-size", type=int, default=32, help="times per write")
     ap.add_argument("--max-times", type=int, help="use only the first N times of the series (for testing)")
+    ap.add_argument("--no-subchunk", dest="subchunk", action="store_false",
+                    help="keep the source chunking (all vertical levels in one chunk) instead of one chunk per level, "
+                         "which is faster for vertical profiles and sections")
     ap.add_argument("--update", action="store_true",
                     help="bring an existing store up to date: truncate the changed tail and append (one commit)")
     ap.add_argument("--expire-days", type=int, help="after writing, expire snapshots older than this many days and garbage-collect")
@@ -165,7 +173,7 @@ def main():
     with ProcessPoolExecutor(args.workers, mp_context=multiprocessing.get_context("spawn")) as pool:
         for i in range(0, len(todo), args.batch_size):
             batch = todo[i:i + args.batch_size]
-            ds = cat(list(pool.map(build_file, batch)), first, attrs)
+            ds = cat(list(pool.map(functools.partial(build_file, subchunk=args.subchunk), batch)), first, attrs)
             if first:
                 ds.vz.to_icechunk(session.store, mode="w")
             else:

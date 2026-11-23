@@ -12,9 +12,10 @@ open in about a second as one lazy `xarray` datacube.
 |---|---|---|
 | **`avg` best estimate** — one continuous time series | `https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-best` | `time` is the valid time (daily, 12:00 UTC): the analysis for the past, then the latest forecast. **Start here.** |
 | **`avg` forecast runs (FMRC)** — every run kept | `https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-fmrc` | `time` is the run reference time and `step` the lead day 0–7, so valid times overlap between runs. |
+| **Whole-column variants** — `eccofs-avg-best-nosub`, `eccofs-avg-fmrc-nosub` | `https://data.source.coop/ocean-icechunks/noaa-eccofs/<name>` | The same two datasets with NOAA's chunking kept (all 50 levels of a tile in one chunk): faster for vertical profiles and sections, slower for maps. |
 
-Both stores are **virtual**: each holds only Zarr metadata and byte-range references to the NetCDF files in
-NOAA's public bucket `s3://noaa-nos-eccofs-pds` (us-east-1). Nothing is copied, and both are kept up to date
+All stores are **virtual**: each holds only Zarr metadata and byte-range references to the NetCDF files in
+NOAA's public bucket `s3://noaa-nos-eccofs-pds` (us-east-1). Nothing is copied, and all are kept up to date
 automatically (see [How it stays up to date](#how-it-stays-up-to-date)).
 
 ## View it in a browser
@@ -105,6 +106,8 @@ Spatial chunks (145 × 167, a 10 × 10 tiling) are inherited from NOAA's files a
 virtual store. The files are not compressed, so each vertical level inside a source chunk is a contiguous byte
 range, and the stores reference one level per chunk. In one measurement from a laptop, a surface map moved
 about 30 MB over the network where whole 50-level chunks moved about 530 MB.
+The `-nosub` stores reference whole 50-level chunks instead, so a vertical profile or section reads one chunk per
+tile and not 50. Pick the store that matches how you slice the data.
 
 ## How it stays up to date
 
