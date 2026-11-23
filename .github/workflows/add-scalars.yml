@@ -10,6 +10,10 @@ on:
         description: "Print the values and store state, write nothing"
         type: boolean
         default: true
+      stores:
+        description: "Space-separated store names under noaa-eccofs/ (add the -nosub ones once they are built)"
+        type: string
+        default: "eccofs-avg-best eccofs-avg-fmrc"
 
 # the stores are also written by the daily update workflows
 concurrency:
@@ -38,8 +42,8 @@ jobs:
           audience: https://data.source.coop
           sts-endpoint: https://data.source.coop/.sts
           aws-region: us-west-2
-      - name: Add the scalars to both stores
+      - name: Add the scalars to the stores
         run: |
-          for store in eccofs-avg-best eccofs-avg-fmrc; do
+          for store in ${{ inputs.stores }}; do
             python scripts/add_scalars.py --prefix noaa-eccofs/$store ${{ inputs.dry_run && '--dry-run' || '' }}
           done
