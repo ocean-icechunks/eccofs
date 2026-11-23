@@ -44,9 +44,11 @@ import xarray as xr
 URL = "https://data.source.coop/ocean-icechunks/noaa-eccofs/eccofs-avg-best"
 SOURCE = "s3://noaa-nos-eccofs-pds/"          # NOAA's public bucket, where the NetCDF bytes are
 
-repo = icechunk.Repository.open(icechunk.http_storage(URL))
 # the arrays live in NOAA's bucket, outside the store, so authorize that virtual chunk container (anonymous)
-repo = repo.reopen(authorize_virtual_chunk_access=icechunk.containers_credentials({SOURCE: icechunk.s3_anonymous_credentials()}))
+repo = icechunk.Repository.open(
+    icechunk.http_storage(URL),
+    authorize_virtual_chunk_access=icechunk.containers_credentials({SOURCE: icechunk.s3_anonymous_credentials()}),
+)
 
 ds = xr.open_zarr(repo.readonly_session("main").store, consolidated=False, chunks={})
 sst = ds.temp.isel(s_rho=-1)                   # surface level of potential temperature
