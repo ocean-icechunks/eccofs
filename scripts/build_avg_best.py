@@ -142,7 +142,10 @@ def main():
         if not args.update:
             raise SystemExit(f"s3://{args.bucket}/{args.prefix} already exists; pass --update to bring it up to date")
         repo = icechunk.Repository.open(storage, repo_config(), authorize_virtual_chunk_access=auth)
-        old = zarr.open_group(repo.readonly_session("main").store, mode="r").attrs.get("sources")
+        try:
+            old = zarr.open_group(repo.readonly_session("main").store, mode="r").attrs.get("sources")
+        except zarr.errors.GroupNotFoundError:  # empty repo, e.g. left by a build whose final commit failed
+            old = None
         if old is None:
             log("store has no `sources` attribute: rebuilding in full")
         else:
