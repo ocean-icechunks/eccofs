@@ -144,7 +144,7 @@ def main():
         repo = icechunk.Repository.open(storage, repo_config(), authorize_virtual_chunk_access=auth)
         try:
             old = zarr.open_group(repo.readonly_session("main").store, mode="r").attrs.get("sources")
-        except zarr.errors.GroupNotFoundError:   # a repository whose first build never committed
+        except zarr.errors.GroupNotFoundError:  # empty repo, e.g. left by a build whose final commit failed
             old = None
         if old is None:
             log("store has no `sources` attribute: rebuilding in full")
