@@ -37,4 +37,4 @@ jobs:
       - name: Forecast-run store
         run: python scripts/build_avg.py --no-subchunk --create --prefix noaa-eccofs/eccofs-avg-fmrc-nosub
       - name: Best-estimate store
-        run: python scripts/build_avg_best.py --no-subchunk --create --prefix noaa-eccofs/eccofs-avg-best-nosub
+        run: python scripts/build_avg_best.py --no-subchunk --create --update --prefix noaa-eccofs/eccofs-avg-best-nosub
