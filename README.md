@@ -87,6 +87,7 @@ maps with little code. The notebooks below all follow the same steps:
 |---|---|
 | [`eccofs_avg_best_ambrose_bermuda.ipynb`](eccofs_avg_best_ambrose_bermuda.ipynb) | temperature and cross-route current sections from Ambrose to Bermuda, the surface current along and across the route, and a map of surface currents ([rendered](https://nbviewer.org/gist/rsignell/a0690650f4b9c1c45bc62f0d117c9278)) |
 | [`eccofs_avg_best_nj_transect_xroms.ipynb`](eccofs_avg_best_nj_transect_xroms.ipynb) | a temperature section off New Jersey with `xroms.interpll` ([rendered](https://nbviewer.org/gist/rsignell/ddd995cf809bd6f2f79d4dc6cac8e310), an earlier version of the same section) |
+| [`eccofs_avg_best_nj_transect_xroms_nosub.ipynb`](eccofs_avg_best_nj_transect_xroms_nosub.ipynb) | the same section read from the whole-column `eccofs-avg-best-nosub` store, to compare with the default store (only `URL` differs) |
 | [`eccofs_avg_best_nj_transect.ipynb`](eccofs_avg_best_nj_transect.ipynb) | the same section with scipy interpolation and no xroms |
 | [`eccofs_avg_best_nj_isoslice_test.ipynb`](eccofs_avg_best_nj_isoslice_test.ipynb) | a test of `xroms.isoslice` for sections between two points (it works, but `interpll` is simpler) |
 
