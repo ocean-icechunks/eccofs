@@ -97,9 +97,10 @@ maps with little code. The notebooks below all follow the same steps:
 in [xroms#83](https://github.com/xoceanmodel/xroms/pull/83), [xroms#84](https://github.com/xoceanmodel/xroms/issues/84)
 and [cf-xarray#697](https://github.com/xarray-contrib/cf-xarray/pull/697).
 
-**Which store:** the notebooks read `eccofs-avg-best`, which works as soon as it is built. A section reads every
-vertical level in the box, so the whole-column `eccofs-avg-best-nosub` store is the better fit for it: change `URL`
-at the top of the notebook. That store needs the scalars added too, see
+**Which store:** the four section notebooks above read the whole-column `eccofs-avg-best-nosub` store, because a
+section reads every vertical level in the box (see [Chunking](#chunking) for the timings). The surface-map and
+point-series notebooks read the default `eccofs-avg-best` store, where one chunk is one level. Change `URL` at the
+top of a notebook to use the other store. xroms needs the ROMS scalars, which are stored with the data, see
 [How the stores are built](#how-the-stores-are-built).
 
 ## About the data
@@ -149,6 +150,18 @@ In one measurement from a laptop, a surface map moved about 30 MB over the netwo
 whole 50-level chunks moved about 530 MB. A section does the opposite: it reads all 50 levels, so one chunk per
 tile is far fewer requests than 50. The chunking of an existing store cannot change, which is why these are
 separate repositories. Pick the store that matches how you slice the data.
+
+Measured reads from a laptop (2026-11-23, anonymous, from NOAA's us-east-1 bucket; each figure is the mean of
+2 or 3 fresh-process runs, and both stores returned identical values):
+
+| Read | Default store | `-nosub` store |
+|---|---|---|
+| Surface temperature series at one grid cell (the cell nearest NERACOOS buoy B), all 170 times | **3.4 s** | 21.8 s |
+| Temperature in the New Jersey section box (50 levels, one time) | 5.4 s | **1.8 s** |
+| Temperature in the Ambrose to Bermuda box (50 levels, one time) | 9.7 s | **5.2 s** |
+
+Opening the store and reading the coordinates costs about the same on both (a few seconds). The ratios matter more
+than the absolute times, which depend on your network path to the bucket.
 
 ## How the stores are built
 
