@@ -57,6 +57,15 @@ For the forecast-run store use the `eccofs-avg-fmrc` URL; its variables have dim
 [Rolodex](https://github.com/dcherian/rolodex). A complete example with maps and a point time series is in
 [`eccofs_avg_best_series_surface_temp.ipynb`](eccofs_avg_best_series_surface_temp.ipynb).
 
+Vertical sections and currents, using [xroms](https://xroms.readthedocs.io) for the grid and depths:
+
+- [`eccofs_avg_best_ambrose_bermuda.ipynb`](eccofs_avg_best_ambrose_bermuda.ipynb): temperature and cross-route current sections from Ambrose to Bermuda, the surface current along the route, and a map of surface currents
+  ([rendered](https://nbviewer.org/gist/rsignell/a0690650f4b9c1c45bc62f0d117c9278))
+- [`eccofs_avg_best_nj_transect_xroms.ipynb`](eccofs_avg_best_nj_transect_xroms.ipynb): a temperature section off New Jersey with `xroms.interpll`
+  ([rendered](https://nbviewer.org/gist/rsignell/ddd995cf809bd6f2f79d4dc6cac8e310), an earlier version of the same section)
+- [`eccofs_avg_best_nj_transect.ipynb`](eccofs_avg_best_nj_transect.ipynb): the same section with scipy interpolation and no xroms
+- [`eccofs_avg_best_nj_isoslice_test.ipynb`](eccofs_avg_best_nj_isoslice_test.ipynb): a test of `xroms.isoslice` for sections between two points (it works, but `interpll` is simpler)
+
 Reads are by whole chunk. One chunk is one vertical level of one 145 × 167 tile, so a surface map reads
 about 100 chunks (roughly 10 MB) and not the whole water column. The first surface map from a laptop took a
 few seconds; from a cloud machine in us-east-1 it takes about half a second.
