@@ -4,7 +4,8 @@ name: Build avg stores without subchunking (one-off)
 # chunk), which suits vertical profiles and sections: ocean-icechunks/noaa-eccofs/eccofs-avg-fmrc-nosub and
 # eccofs-avg-best-nosub. Afterwards the daily update workflows keep them current. Both scripts refuse to
 # touch an existing repository unless told to, and build_avg.py resumes by diffing reference times, so
-# re-running this after a failure or an expired token is safe.
+# re-running this after a failure or an expired token is safe (the best-estimate step is rebuilt in full if its
+# first commit never happened).
 on:
   workflow_dispatch:
 
@@ -37,4 +38,4 @@ jobs:
       - name: Forecast-run store
         run: python scripts/build_avg.py --no-subchunk --create --prefix noaa-eccofs/eccofs-avg-fmrc-nosub
       - name: Best-estimate store
-        run: python scripts/build_avg_best.py --no-subchunk --create --prefix noaa-eccofs/eccofs-avg-best-nosub
+        run: python scripts/build_avg_best.py --no-subchunk --create --update --prefix noaa-eccofs/eccofs-avg-best-nosub
