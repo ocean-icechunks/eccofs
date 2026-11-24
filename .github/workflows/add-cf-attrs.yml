@@ -1,0 +1,50 @@
+name: Add CF coordinate attributes to the avg stores
+
+# One-off: sets CF standard names and units on the 2-D lon/lat coordinates (and marks `time` as the time axis in
+# the best-estimate stores) so OGC tile and EDR services can find the X/Y/T axes. Only attributes change, in one
+# small commit per store; the data is not touched and the daily updates leave static arrays alone.
+# Run with dry_run first, then again without it. Safe to repeat: a store with nothing to change is skipped.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the values and store state, write nothing"
+        type: boolean
+        default: true
+      stores:
+        description: "Space-separated store names under noaa-eccofs/"
+        type: string
+        default: "eccofs-avg-best eccofs-avg-best-nosub eccofs-avg-fmrc eccofs-avg-fmrc-nosub"
+
+# the stores are also written by the daily update workflows
+concurrency:
+  group: update-avg
+  cancel-in-progress: false
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write  # lets aws-actions/configure-aws-credentials exchange the GitHub token for a role
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+      - run: pip install -r scripts/requirements.txt
+      - name: Sign in to Source Cooperative as ocean-icechunks--noaa-eccofs-updates
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::ocean-icechunks--noaa-eccofs-updates:role/FullAccess
+          audience: https://data.source.coop
+          sts-endpoint: https://data.source.coop/.sts
+          aws-region: us-west-2
+      - name: Add the CF attributes to the stores
+        run: |
+          for store in ${{ inputs.stores }}; do
+            python scripts/add_cf_attrs.py --prefix noaa-eccofs/$store ${{ inputs.dry_run && '--dry-run' || '' }}
+          done
