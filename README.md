@@ -168,7 +168,7 @@ than the absolute times, which depend on your network path to the bucket.
 ## How the stores are built
 
 The stores are made from NOAA's NetCDF files without copying them. Each of the four is built in two steps and then
-given its scalars, by three scripts in [`scripts/`](scripts):
+given its scalars and CF attributes, by four scripts in [`scripts/`](scripts):
 
 1. **Forecast-run store** (`scripts/build_avg.py`). Each file `avg/eccofs_avg_<run>_<NNNN>.nc` is one lead day of
    a run. [VirtualiZarr](https://virtualizarr.readthedocs.io) reads the metadata and the byte ranges of each
@@ -184,6 +184,10 @@ given its scalars, by three scripts in [`scripts/`](scripts):
 3. **Scalars** (`scripts/add_scalars.py`). The build drops the scalar model parameters, so this reads them from
    one NOAA file and writes them into a store as 0-d arrays in a single commit, without touching the existing
    data. xroms needs them to compute depths. Run it once on each store after it is built; it is safe to repeat.
+4. **CF attributes** (`scripts/add_cf_attrs.py`). ROMS calls its 2-D coordinates `grid_longitude_at_cell_center`
+   and so on, which CF-aware tools do not read as longitude and latitude. This sets the CF standard names and units
+   on `lon_*` / `lat_*` (and marks `time` as the time axis in the best-estimate stores), so OGC tile and EDR
+   services can find the axes. It changes attributes only, in one commit; safe to repeat.
 
 The two chunkings are built by running the same scripts twice, with `--no-subchunk --prefix <name>-nosub` for the
 whole-column pair. Per-level references need a
@@ -217,6 +221,8 @@ Three workflows are run by hand, from the Actions tab:
   if the sign-in token expires, so re-running it is safe. After it, the daily workflows keep them current.
 - **Add scalar model parameters to the avg stores** runs `add_scalars.py`. Run it with `dry_run` first. Its
   `stores` input names the stores to change.
+- **Add CF coordinate attributes to the avg stores** runs `add_cf_attrs.py`, with the same `dry_run` and `stores`
+  inputs.
 - **Copy avg stores from OSN to Source Cooperative (one-off)** moved the first stores from OSN to Source Cooperative
   and is kept for the record.
 
@@ -231,6 +237,7 @@ page whenever it changes on `main`. The `his/` product and the other prefixes of
 | `scripts/build_avg.py` | builds and extends the forecast-run store: one reference time per run, per-level or whole-column chunks |
 | `scripts/build_avg_best.py` | builds and incrementally updates the best-estimate store |
 | `scripts/add_scalars.py` | writes the dropped scalar model parameters into a store |
+| `scripts/add_cf_attrs.py` | sets CF standard names and units on the 2-D lon/lat coordinates (and `time` in the best-estimate stores) |
 | `.github/workflows/` | the daily updates and the one-off builds, scalar restore, migration and README publishing described above |
 | `eccofs_avg_best_series_surface_temp.ipynb` | opens the best-estimate store anonymously, maps the surface temperature and plots a point time series |
 | `eccofs_avg_best_ambrose_bermuda.ipynb` and the other `eccofs_avg_best_nj_*` notebooks | vertical sections and currents with xroms, see above |
